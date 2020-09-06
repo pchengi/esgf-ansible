@@ -75,10 +75,29 @@ LoadModule cgi_module modules/mod_cgi.so
 LoadModule version_module modules/mod_version.so
 LoadModule ssl_module modules/mod_ssl.so
 LoadModule unixd_module modules/mod_unixd.so
+{% if 'data' in group_names %}
+{% raw %}
+LoadModule geoip_module modules/mod_geoip.so
+
+<IfModule mod_geoip.c>
+  GeoIPEnable On
+  GeoIPDBFile /usr/share/GeoIP/GeoIP.dat
+  LogFormat "%{GEOIP_COUNTRY_CODE}e %{%s}t %r %>s %B %D \"%{User-Agent}i\"" country_downloads
+  SetEnvIf Request_URI "^/thredds/fileServer.*$" data_log
+  CustomLog logs/country_downloads_log country_downloads env=data_log
+</IfModule>
+{% endraw %}
+{% endif %}
+
 
 User apache
 Group apache
 ServerAdmin root@localhost
+
+# Include modsecurity rules
+# Modify the below file to change rules from default
+#Include conf.d/mod_security.conf
+
 UseCanonicalName Off
 HostnameLookups Off
 ErrorLog logs/error_log
@@ -164,6 +183,10 @@ NameVirtualHost *:80
 <Location /solr/*/update>
     Require all denied
 </Location>
+<Location /solr/*/debug>
+    Require all denied
+</Location>
+
 <VirtualHost *:80>
 
 	Alias /.well-known/acme-challenge/ /var/www/html/.well-known/acme-challenge/
@@ -185,6 +208,8 @@ NameVirtualHost *:80
     RewriteCond %{REQUEST_URI} !^/thredds(.*)$
 	RewriteCond %{REQUEST_URI} !^/server-status(.*)$
     RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [R,L]
+
+    Redirect /esgf-web-fe / 
 
 	#add local configuration, if any,  to /etc/httpd/conf/esgf-httpd-local.conf (without virtualhost directive) and uncomment following line. For https, the file is esgf-httpd-locals.conf (locals for https, local for http)
 	#Include /etc/httpd/conf/esgf-httpd-local.conf
